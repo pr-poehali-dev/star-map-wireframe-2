@@ -1,593 +1,751 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
-interface Star {
+interface CelestialObject {
   id: number;
   name: string;
   x: number;
   y: number;
   brightness: number;
-  type: 'star' | 'planet' | 'nebula' | 'galaxy';
+  category: 'brightest' | 'planet' | 'deep-space';
+  type: 'star' | 'planet' | 'nebula' | 'galaxy' | 'cluster';
   constellation?: string;
-  season?: string;
-  description?: string;
-}
-
-interface Constellation {
-  name: string;
-  stars: number;
-  season: string;
+  distance?: string;
   description: string;
-  mainStars: string[];
+  facts?: string[];
+  magnitude?: number;
 }
 
-const constellations: Constellation[] = [
+const celestialObjects: CelestialObject[] = [
   {
-    name: 'Большая Медведица',
-    stars: 7,
-    season: 'Весь год',
-    description: 'Одно из самых узнаваемых созвездий северного полушария. Содержит знаменитый астеризм "Большой Ковш".',
-    mainStars: ['Дубхе', 'Мерак', 'Фекда', 'Мегрец', 'Алиот', 'Мицар', 'Бенетнаш']
+    id: 1,
+    name: 'Сириус',
+    x: 25,
+    y: 45,
+    brightness: 5.5,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Большой Пёс',
+    distance: '8.6 световых лет',
+    magnitude: -1.46,
+    description: 'Ярчайшая звезда ночного неба, двойная звёздная система.',
+    facts: [
+      'Самая яркая звезда на небе после Солнца',
+      'Имеет спутник - белый карлик Сириус B',
+      'Температура поверхности около 9,940 К',
+      'Видна из обоих полушарий Земли'
+    ]
   },
   {
-    name: 'Орион',
-    stars: 7,
-    season: 'Зима',
-    description: 'Яркое экваториальное созвездие, известное поясом Ориона из трёх звёзд и туманностью Ориона.',
-    mainStars: ['Бетельгейзе', 'Ригель', 'Беллатрикс', 'Альнилам', 'Минтака']
+    id: 2,
+    name: 'Венера',
+    x: 70,
+    y: 30,
+    brightness: 5,
+    category: 'planet',
+    type: 'planet',
+    distance: '38-261 млн км',
+    magnitude: -4.6,
+    description: 'Вторая планета от Солнца, самый яркий объект на небе после Солнца и Луны.',
+    facts: [
+      'Температура поверхности около 465°C',
+      'Один день длится 243 земных суток',
+      'Вращается в обратном направлении',
+      'Плотная атмосфера из углекислого газа'
+    ]
   },
   {
-    name: 'Кассиопея',
-    stars: 5,
-    season: 'Осень',
-    description: 'Созвездие в форме буквы "W", названное в честь мифической царицы Эфиопии.',
-    mainStars: ['Шедар', 'Каф', 'Нави', 'Рукбах', 'Сегин']
+    id: 3,
+    name: 'Юпитер',
+    x: 40,
+    y: 60,
+    brightness: 4.8,
+    category: 'planet',
+    type: 'planet',
+    distance: '588-968 млн км',
+    magnitude: -2.94,
+    description: 'Крупнейшая планета Солнечной системы, газовый гигант.',
+    facts: [
+      'Масса больше всех планет системы вместе взятых',
+      'Имеет 95 известных спутников',
+      'Большое Красное Пятно - гигантский ураган',
+      'Один оборот вокруг оси за 10 часов'
+    ]
   },
   {
-    name: 'Лебедь',
-    stars: 5,
-    season: 'Лето',
-    description: 'Крестообразное созвездие, представляющее летящего лебедя. Содержит яркую звезду Денеб.',
-    mainStars: ['Денеб', 'Альбирео', 'Садр', 'Гиенах']
+    id: 4,
+    name: 'Марс',
+    x: 55,
+    y: 50,
+    brightness: 4.3,
+    category: 'planet',
+    type: 'planet',
+    distance: '55-400 млн км',
+    magnitude: -2.91,
+    description: 'Четвёртая планета от Солнца, известная как "Красная планета".',
+    facts: [
+      'Красный цвет из-за оксида железа',
+      'Есть полярные ледяные шапки',
+      'Самая высокая гора в Солнечной системе - Олимп',
+      'Атмосфера на 95% состоит из CO2'
+    ]
   },
   {
-    name: 'Лев',
-    stars: 9,
-    season: 'Весна',
-    description: 'Зодиакальное созвездие, представляющее льва. Главная звезда — Регул.',
-    mainStars: ['Регул', 'Денебола', 'Альгиеба', 'Зосма']
+    id: 5,
+    name: 'Канопус',
+    x: 15,
+    y: 70,
+    brightness: 5.2,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Киль',
+    distance: '310 световых лет',
+    magnitude: -0.74,
+    description: 'Вторая по яркости звезда ночного неба, белый гигант.',
+    facts: [
+      'В 71 раз больше Солнца',
+      'Светимость в 10,000 раз больше солнечной',
+      'Используется для навигации космических аппаратов',
+      'Видна только в южных широтах'
+    ]
   },
   {
-    name: 'Скорпион',
-    stars: 18,
-    season: 'Лето',
-    description: 'Яркое зодиакальное созвездие с красной звездой Антарес в центре.',
-    mainStars: ['Антарес', 'Шаула', 'Саргас', 'Акраб']
+    id: 6,
+    name: 'Туманность Ориона',
+    x: 45,
+    y: 35,
+    brightness: 4.5,
+    category: 'deep-space',
+    type: 'nebula',
+    constellation: 'Орион',
+    distance: '1,344 световых года',
+    magnitude: 4.0,
+    description: 'Диффузная туманность, область активного звездообразования.',
+    facts: [
+      'Одна из ближайших областей звездообразования',
+      'Видна невооружённым глазом',
+      'Размер около 24 световых лет',
+      'Содержит более 700 молодых звёзд'
+    ]
+  },
+  {
+    id: 7,
+    name: 'Арктур',
+    x: 80,
+    y: 55,
+    brightness: 5.3,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Волопас',
+    distance: '36.7 световых лет',
+    magnitude: -0.05,
+    description: 'Ярчайшая звезда северного небесного полушария, красный гигант.',
+    facts: [
+      'Одна из самых близких красных гигантов',
+      'Движется со скоростью 122 км/с',
+      'Возраст около 7.1 миллиарда лет',
+      'Диаметр в 25 раз больше Солнца'
+    ]
+  },
+  {
+    id: 8,
+    name: 'Сатурн',
+    x: 30,
+    y: 25,
+    brightness: 4.6,
+    category: 'planet',
+    type: 'planet',
+    distance: '1.2-1.7 млрд км',
+    magnitude: 0.46,
+    description: 'Шестая планета от Солнца, известная своими кольцами.',
+    facts: [
+      'Кольца состоят из льда и камней',
+      'Имеет 146 известных спутников',
+      'Плотность меньше, чем у воды',
+      'Один год длится 29.5 земных лет'
+    ]
+  },
+  {
+    id: 9,
+    name: 'Вега',
+    x: 65,
+    y: 20,
+    brightness: 5.1,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Лира',
+    distance: '25 световых лет',
+    magnitude: 0.03,
+    description: 'Одна из самых ярких звёзд северного неба, голубая звезда.',
+    facts: [
+      'Вторая по яркости звезда северного полушария',
+      'Используется как эталон звёздных величин',
+      'Вращается очень быстро - 274 км/с',
+      'Возраст около 455 миллионов лет'
+    ]
+  },
+  {
+    id: 10,
+    name: 'Галактика Андромеды',
+    x: 50,
+    y: 75,
+    brightness: 4.0,
+    category: 'deep-space',
+    type: 'galaxy',
+    constellation: 'Андромеда',
+    distance: '2.5 млн световых лет',
+    magnitude: 3.44,
+    description: 'Ближайшая к Млечному Пути крупная галактика, спиральная галактика.',
+    facts: [
+      'Содержит около триллиона звёзд',
+      'Движется к Млечному Пути со скоростью 110 км/с',
+      'Столкновение с Млечным Путём через 4.5 млрд лет',
+      'Видна невооружённым глазом в тёмном небе'
+    ]
+  },
+  {
+    id: 11,
+    name: 'Плеяды',
+    x: 35,
+    y: 80,
+    brightness: 4.2,
+    category: 'deep-space',
+    type: 'cluster',
+    constellation: 'Телец',
+    distance: '444 световых года',
+    magnitude: 1.6,
+    description: 'Рассеянное звёздное скопление, состоящее из горячих голубых звёзд.',
+    facts: [
+      'Содержит около 1,000 звёзд',
+      'Возраст около 100 миллионов лет',
+      'Видно невооружённым глазом 6-7 ярких звёзд',
+      'Окружены газопылевой туманностью'
+    ]
+  },
+  {
+    id: 12,
+    name: 'Бетельгейзе',
+    x: 20,
+    y: 55,
+    brightness: 5.0,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Орион',
+    distance: '640 световых лет',
+    magnitude: 0.42,
+    description: 'Красный сверхгигант, одна из крупнейших известных звёзд.',
+    facts: [
+      'Диаметр в 700-900 раз больше Солнца',
+      'Скоро взорвётся как сверхновая (в течение 100,000 лет)',
+      'Яркость переменная, меняется со временем',
+      'Если бы была на месте Солнца, поглотила бы орбиту Марса'
+    ]
+  },
+  {
+    id: 13,
+    name: 'Крабовидная туманность',
+    x: 75,
+    y: 70,
+    brightness: 3.8,
+    category: 'deep-space',
+    type: 'nebula',
+    constellation: 'Телец',
+    distance: '6,500 световых лет',
+    magnitude: 8.4,
+    description: 'Остаток сверхновой, зафиксированной в 1054 году китайскими астрономами.',
+    facts: [
+      'Расширяется со скоростью 1,500 км/с',
+      'Содержит пульсар, вращающийся 30 раз в секунду',
+      'Диаметр около 11 световых лет',
+      'Излучает во всех диапазонах спектра'
+    ]
+  },
+  {
+    id: 14,
+    name: 'Ригель',
+    x: 60,
+    y: 85,
+    brightness: 5.4,
+    category: 'brightest',
+    type: 'star',
+    constellation: 'Орион',
+    distance: '860 световых лет',
+    magnitude: 0.13,
+    description: 'Голубой сверхгигант, седьмая по яркости звезда ночного неба.',
+    facts: [
+      'Светимость в 120,000 раз больше солнечной',
+      'Температура поверхности около 11,000 К',
+      'Тройная звёздная система',
+      'Одна из самых мощных звёзд в ближайшей окрестности'
+    ]
+  },
+  {
+    id: 15,
+    name: 'Меркурий',
+    x: 85,
+    y: 40,
+    brightness: 4.1,
+    category: 'planet',
+    type: 'planet',
+    distance: '77-222 млн км',
+    magnitude: -1.9,
+    description: 'Самая близкая к Солнцу планета, самая маленькая в Солнечной системе.',
+    facts: [
+      'День длится 176 земных суток',
+      'Температура от -173°C ночью до +427°C днём',
+      'Почти нет атмосферы',
+      'Поверхность похожа на Луну - покрыта кратерами'
+    ]
   }
 ];
 
-const generateStars = (): Star[] => {
-  const stars: Star[] = [];
-  const starTypes: Array<'star' | 'planet' | 'nebula' | 'galaxy'> = ['star', 'planet', 'nebula', 'galaxy'];
-  const seasons = ['Зима', 'Весна', 'Лето', 'Осень', 'Весь год'];
-  const starNames = [
-    'Сириус', 'Канопус', 'Арктур', 'Вега', 'Капелла', 'Ригель', 'Процион', 'Бетельгейзе',
-    'Альтаир', 'Альдебаран', 'Антарес', 'Спика', 'Поллукс', 'Фомальгаут', 'Денеб',
-    'Регул', 'Кастор', 'Шаула', 'Беллатрикс', 'Альнилам', 'Минтака', 'Дубхе', 'Алиот',
-    'Мицар', 'Альбирео', 'Садр', 'Шедар', 'Каф', 'Нави'
-  ];
-
-  for (let i = 0; i < 150; i++) {
-    const type = i < 25 ? starTypes[Math.floor(Math.random() * starTypes.length)] : 'star';
-    stars.push({
-      id: i,
-      name: i < starNames.length ? starNames[i] : `Звезда-${i}`,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      brightness: Math.random() * 5 + 1,
-      type,
-      constellation: i < 30 ? constellations[Math.floor(Math.random() * constellations.length)].name : undefined,
-      season: seasons[Math.floor(Math.random() * seasons.length)],
-      description: type !== 'star' ? `${type === 'planet' ? 'Планета' : type === 'nebula' ? 'Туманность' : 'Галактика'} в созвездии` : undefined
-    });
-  }
-  return stars;
+const generateBackgroundStars = (count: number) => {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `bg-${i}`,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: Math.random() * 2 + 0.5,
+    opacity: Math.random() * 0.7 + 0.3,
+    delay: Math.random() * 3
+  }));
 };
 
 export default function Index() {
-  const [stars] = useState<Star[]>(generateStars());
-  const [filteredStars, setFilteredStars] = useState<Star[]>(stars);
-  const [selectedStar, setSelectedStar] = useState<Star | null>(null);
+  const [objects] = useState<CelestialObject[]>(celestialObjects);
+  const [backgroundStars] = useState(generateBackgroundStars(200));
+  const [selectedObject, setSelectedObject] = useState<CelestialObject | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [brightnessFilter, setBrightnessFilter] = useState([1, 6]);
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [seasonFilter, setSeasonFilter] = useState<string>('all');
+  const [suggestions, setSuggestions] = useState<CelestialObject[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const filtered = stars.filter(star => {
-      const matchesBrightness = star.brightness >= brightnessFilter[0] && star.brightness <= brightnessFilter[1];
-      const matchesType = typeFilter === 'all' || star.type === typeFilter;
-      const matchesSeason = seasonFilter === 'all' || star.season === seasonFilter;
-      const matchesSearch = star.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (star.constellation?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      
-      return matchesBrightness && matchesType && matchesSeason && matchesSearch;
-    });
-    setFilteredStars(filtered);
-  }, [brightnessFilter, typeFilter, seasonFilter, searchQuery, stars]);
+    if (searchQuery.length > 0) {
+      const filtered = objects.filter(obj =>
+        obj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        obj.constellation?.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 5);
+      setSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, objects]);
 
-  const getStarColor = (star: Star) => {
-    if (star.type === 'planet') return '#ffd43b';
-    if (star.type === 'nebula') return '#ff6b9d';
-    if (star.type === 'galaxy') return '#a5d8ff';
-    if (star.brightness > 4) return '#ffffff';
-    if (star.brightness > 3) return '#e0e7ff';
-    return '#cbd5e1';
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
   };
 
-  const getStarSize = (brightness: number) => {
-    return brightness > 4 ? 4 : brightness > 3 ? 3 : 2;
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      const newX = e.clientX - panStart.x;
+      const newY = e.clientY - panStart.y;
+      setPanOffset({ x: newX, y: newY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY * 0.5;
+    setPanOffset(prev => ({
+      x: prev.x - delta * 0.3,
+      y: prev.y - delta * 0.3
+    }));
+  };
+
+  const getFilteredObjects = () => {
+    if (categoryFilter === 'all') return objects;
+    return objects.filter(obj => obj.category === categoryFilter);
+  };
+
+  const getObjectColor = (obj: CelestialObject) => {
+    switch (obj.type) {
+      case 'planet': return '#ffd43b';
+      case 'nebula': return '#ff6b9d';
+      case 'galaxy': return '#a5d8ff';
+      case 'cluster': return '#b197fc';
+      default: return obj.brightness > 5 ? '#ffffff' : '#e0e7ff';
+    }
+  };
+
+  const getObjectSize = (brightness: number) => {
+    return Math.max(3, brightness * 0.8);
+  };
+
+  const handleObjectClick = (obj: CelestialObject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedObject(obj);
+  };
+
+  const handleSuggestionClick = (obj: CelestialObject) => {
+    setSelectedObject(obj);
+    setSearchQuery('');
+    setShowSuggestions(false);
+    setPanOffset({
+      x: (50 - obj.x) * 10,
+      y: (50 - obj.y) * 10
+    });
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm fixed top-0 w-full z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Icon name="Sparkles" size={32} className="text-primary" />
-            <h1 className="text-2xl font-bold">Звёздное небо</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="outline" className="gap-2">
-              <Icon name="Eye" size={16} />
-              {filteredStars.length} объектов
-            </Badge>
-          </div>
-        </div>
-      </header>
-
-      <main className="pt-20">
-        <Tabs defaultValue="map" className="w-full">
-          <div className="border-b border-border bg-card/30 backdrop-blur-sm sticky top-[73px] z-40">
-            <div className="container mx-auto px-4">
-              <TabsList className="w-full justify-start h-14 bg-transparent">
-                <TabsTrigger value="map" className="gap-2">
-                  <Icon name="Map" size={18} />
-                  Карта неба
-                </TabsTrigger>
-                <TabsTrigger value="catalog" className="gap-2">
-                  <Icon name="BookOpen" size={18} />
-                  Созвездия
-                </TabsTrigger>
-                <TabsTrigger value="search" className="gap-2">
-                  <Icon name="Search" size={18} />
-                  Поиск
-                </TabsTrigger>
-                <TabsTrigger value="legend" className="gap-2">
-                  <Icon name="Info" size={18} />
-                  Легенда
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <h1 className="text-2xl font-bold hidden sm:block">Звёздное небо</h1>
           </div>
 
-          <TabsContent value="map" className="m-0 p-0">
-            <div className="container mx-auto px-4 py-6">
-              <div className="grid lg:grid-cols-4 gap-6">
-                <Card className="lg:col-span-1 h-fit">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon name="SlidersHorizontal" size={20} />
-                      Фильтры
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Icon name="Sparkle" size={16} />
-                        Яркость звёзд
-                      </label>
-                      <Slider
-                        min={1}
-                        max={6}
-                        step={0.5}
-                        value={brightnessFilter}
-                        onValueChange={setBrightnessFilter}
-                        className="w-full"
+          <div className="flex-1 max-w-md relative">
+            <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Поиск объектов..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchQuery && setShowSuggestions(true)}
+              className="pl-10"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <Card className="absolute top-full mt-2 w-full z-50 max-h-80 overflow-auto">
+                <CardContent className="p-2">
+                  {suggestions.map((obj) => (
+                    <button
+                      key={obj.id}
+                      onClick={() => handleSuggestionClick(obj)}
+                      className="w-full text-left p-3 rounded-md hover:bg-accent transition-colors flex items-center gap-3"
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: getObjectColor(obj) }}
                       />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{brightnessFilter[0].toFixed(1)}</span>
-                        <span>{brightnessFilter[1].toFixed(1)}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Icon name="Layers" size={16} />
-                        Тип объекта
-                      </label>
-                      <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Все типы</SelectItem>
-                          <SelectItem value="star">⭐ Звёзды</SelectItem>
-                          <SelectItem value="planet">🪐 Планеты</SelectItem>
-                          <SelectItem value="nebula">🌸 Туманности</SelectItem>
-                          <SelectItem value="galaxy">🌌 Галактики</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Icon name="Calendar" size={16} />
-                        Сезон видимости
-                      </label>
-                      <Select value={seasonFilter} onValueChange={setSeasonFilter}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Все сезоны</SelectItem>
-                          <SelectItem value="Зима">❄️ Зима</SelectItem>
-                          <SelectItem value="Весна">🌸 Весна</SelectItem>
-                          <SelectItem value="Лето">☀️ Лето</SelectItem>
-                          <SelectItem value="Осень">🍂 Осень</SelectItem>
-                          <SelectItem value="Весь год">🌍 Весь год</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => {
-                        setBrightnessFilter([1, 6]);
-                        setTypeFilter('all');
-                        setSeasonFilter('all');
-                        setSearchQuery('');
-                      }}
-                    >
-                      <Icon name="RotateCcw" size={16} className="mr-2" />
-                      Сбросить фильтры
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <div className="lg:col-span-3 space-y-4">
-                  <Card className="relative overflow-hidden bg-gradient-to-b from-card to-background border-2 border-primary/20">
-                    <div 
-                      className="relative w-full aspect-[16/10] bg-[#0a0a0f] cursor-crosshair"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = ((e.clientX - rect.left) / rect.width) * 100;
-                        const y = ((e.clientY - rect.top) / rect.height) * 100;
-                        
-                        const clickedStar = filteredStars.find(star => 
-                          Math.abs(star.x - x) < 2 && Math.abs(star.y - y) < 2
-                        );
-                        
-                        if (clickedStar) {
-                          setSelectedStar(clickedStar);
-                        }
-                      }}
-                    >
-                      {filteredStars.map((star) => (
-                        <div
-                          key={star.id}
-                          className="absolute rounded-full star-twinkle cursor-pointer hover:scale-150 transition-transform"
-                          style={{
-                            left: `${star.x}%`,
-                            top: `${star.y}%`,
-                            width: `${getStarSize(star.brightness)}px`,
-                            height: `${getStarSize(star.brightness)}px`,
-                            backgroundColor: getStarColor(star),
-                            boxShadow: `0 0 ${star.brightness * 2}px ${getStarColor(star)}`,
-                            animationDelay: `${Math.random() * 3}s`,
-                          }}
-                          title={star.name}
-                        />
-                      ))}
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
-                    </div>
-                  </Card>
-
-                  {selectedStar && (
-                    <Card className="animate-fade-in border-primary/50">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-xl">{selectedStar.name}</CardTitle>
-                            <CardDescription className="mt-2 flex flex-wrap gap-2">
-                              <Badge variant="outline">
-                                {selectedStar.type === 'star' ? '⭐ Звезда' : 
-                                 selectedStar.type === 'planet' ? '🪐 Планета' : 
-                                 selectedStar.type === 'nebula' ? '🌸 Туманность' : '🌌 Галактика'}
-                              </Badge>
-                              <Badge variant="secondary">
-                                Яркость: {selectedStar.brightness.toFixed(1)}
-                              </Badge>
-                              {selectedStar.constellation && (
-                                <Badge variant="outline">{selectedStar.constellation}</Badge>
-                              )}
-                              {selectedStar.season && (
-                                <Badge variant="outline">{selectedStar.season}</Badge>
-                              )}
-                            </CardDescription>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSelectedStar(null)}
-                          >
-                            <Icon name="X" size={20} />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-muted-foreground">
-                          {selectedStar.description || 'Небесный объект, видимый в ночном небе.'}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="catalog" className="m-0">
-            <div className="container mx-auto px-4 py-6">
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {constellations.map((constellation) => (
-                  <Card key={constellation.name} className="hover:border-primary/50 transition-colors">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Icon name="Stars" size={20} className="text-primary" />
-                        {constellation.name}
-                      </CardTitle>
-                      <CardDescription className="flex gap-2 mt-2">
-                        <Badge variant="outline">{constellation.stars} звёзд</Badge>
-                        <Badge variant="secondary">{constellation.season}</Badge>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        {constellation.description}
-                      </p>
-                      <div>
-                        <p className="text-xs font-medium mb-2">Главные звёзды:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {constellation.mainStars.map((star) => (
-                            <Badge key={star} variant="outline" className="text-xs">
-                              {star}
-                            </Badge>
-                          ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">{obj.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {obj.constellation ? `${obj.constellation} • ` : ''}{obj.type === 'star' ? 'Звезда' : obj.type === 'planet' ? 'Планета' : obj.type === 'nebula' ? 'Туманность' : obj.type === 'galaxy' ? 'Галактика' : 'Скопление'}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="search" className="m-0">
-            <div className="container mx-auto px-4 py-6">
-              <Card className="mb-6">
-                <CardContent className="pt-6">
-                  <div className="relative">
-                    <Icon name="Search" size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Поиск звёзд, созвездий и объектов..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-12 text-lg"
-                    />
-                  </div>
+                      <Badge variant="outline" className="flex-shrink-0">
+                        {obj.distance}
+                      </Badge>
+                    </button>
+                  ))}
                 </CardContent>
               </Card>
+            )}
+          </div>
 
-              {searchQuery && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">
-                    Найдено результатов: {filteredStars.length}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Icon name="Menu" size={20} />
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Icon name="Layers" size={20} />
+                  Категории объектов
+                </SheetTitle>
+              </SheetHeader>
+              <ScrollArea className="h-[calc(100vh-120px)] mt-6">
+                <div className="space-y-2">
+                  <Button
+                    variant={categoryFilter === 'all' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => setCategoryFilter('all')}
+                  >
+                    <Icon name="Globe" size={18} className="mr-2" />
+                    Все объекты
+                    <Badge variant="secondary" className="ml-auto">
+                      {objects.length}
+                    </Badge>
+                  </Button>
+
+                  <Button
+                    variant={categoryFilter === 'brightest' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => setCategoryFilter('brightest')}
+                  >
+                    <Icon name="Star" size={18} className="mr-2" />
+                    Ярчайшие звёзды
+                    <Badge variant="secondary" className="ml-auto">
+                      {objects.filter(o => o.category === 'brightest').length}
+                    </Badge>
+                  </Button>
+
+                  <Button
+                    variant={categoryFilter === 'planet' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => setCategoryFilter('planet')}
+                  >
+                    <Icon name="Circle" size={18} className="mr-2" />
+                    Планеты
+                    <Badge variant="secondary" className="ml-auto">
+                      {objects.filter(o => o.category === 'planet').length}
+                    </Badge>
+                  </Button>
+
+                  <Button
+                    variant={categoryFilter === 'deep-space' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => setCategoryFilter('deep-space')}
+                  >
+                    <Icon name="Telescope" size={18} className="mr-2" />
+                    Глубокий космос
+                    <Badge variant="secondary" className="ml-auto">
+                      {objects.filter(o => o.category === 'deep-space').length}
+                    </Badge>
+                  </Button>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Icon name="Info" size={18} />
+                    Управление
                   </h3>
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filteredStars.slice(0, 30).map((star) => (
-                      <Card 
-                        key={star.id} 
-                        className="cursor-pointer hover:border-primary/50 transition-colors"
-                        onClick={() => setSelectedStar(star)}
-                      >
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: getStarColor(star) }}
-                            />
-                            {star.name}
-                          </CardTitle>
-                          <CardDescription className="flex gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {star.type === 'star' ? '⭐' : 
-                               star.type === 'planet' ? '🪐' : 
-                               star.type === 'nebula' ? '🌸' : '🌌'}
-                            </Badge>
-                            {star.constellation && (
-                              <Badge variant="secondary" className="text-xs">
-                                {star.constellation}
-                              </Badge>
-                            )}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    ))}
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex gap-2">
+                      <Icon name="Move" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
+                      <p>Перетаскивайте карту мышью</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Icon name="MousePointer2" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
+                      <p>Прокручивайте колесом мыши для навигации</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Icon name="MousePointerClick" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
+                      <p>Нажмите на объект для детальной информации</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Icon name="Search" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
+                      <p>Используйте поиск с автодополнением</p>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="legend" className="m-0">
-            <div className="container mx-auto px-4 py-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon name="Palette" size={20} />
-                      Обозначения объектов
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                <div className="mt-8 space-y-4">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Icon name="Palette" size={18} />
+                    Легенда
+                  </h3>
+                  <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-white shadow-[0_0_8px_white]" />
-                      <div>
-                        <p className="font-medium">Яркие звёзды</p>
-                        <p className="text-xs text-muted-foreground">Яркость {'>'} 4</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-slate-300" />
-                      <div>
-                        <p className="font-medium">Обычные звёзды</p>
-                        <p className="text-xs text-muted-foreground">Яркость 1-4</p>
-                      </div>
+                      <span className="text-sm">Яркие звёзды</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-[#ffd43b] shadow-[0_0_6px_#ffd43b]" />
-                      <div>
-                        <p className="font-medium">Планеты</p>
-                        <p className="text-xs text-muted-foreground">Жёлтый цвет</p>
-                      </div>
+                      <span className="text-sm">Планеты</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-[#ff6b9d] shadow-[0_0_6px_#ff6b9d]" />
-                      <div>
-                        <p className="font-medium">Туманности</p>
-                        <p className="text-xs text-muted-foreground">Розовый цвет</p>
-                      </div>
+                      <span className="text-sm">Туманности</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-[#a5d8ff] shadow-[0_0_6px_#a5d8ff]" />
-                      <div>
-                        <p className="font-medium">Галактики</p>
-                        <p className="text-xs text-muted-foreground">Голубой цвет</p>
-                      </div>
+                      <span className="text-sm">Галактики</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full bg-[#b197fc] shadow-[0_0_6px_#b197fc]" />
+                      <span className="text-sm">Скопления</span>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </header>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon name="Lightbulb" size={20} />
-                      Как пользоваться
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-3">
-                      <Icon name="MousePointerClick" size={20} className="text-primary flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Выбор объекта</p>
-                        <p className="text-sm text-muted-foreground">Нажмите на звезду для просмотра информации</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Icon name="SlidersHorizontal" size={20} className="text-primary flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Фильтрация</p>
-                        <p className="text-sm text-muted-foreground">Используйте панель фильтров для настройки отображения</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Icon name="Search" size={20} className="text-primary flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Поиск</p>
-                        <p className="text-sm text-muted-foreground">Найдите нужный объект по названию или созвездию</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Icon name="BookOpen" size={20} className="text-primary flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Каталог</p>
-                        <p className="text-sm text-muted-foreground">Изучите описания созвездий и их главные звёзды</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+      <main className="pt-[73px] h-screen overflow-hidden">
+        <div
+          ref={mapRef}
+          className="relative w-full h-full bg-[#0a0a0f] cursor-grab active:cursor-grabbing select-none"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
+          <div
+            className="absolute inset-0 transition-transform duration-100"
+            style={{
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+              width: '200%',
+              height: '200%',
+              left: '-50%',
+              top: '-50%'
+            }}
+          >
+            {backgroundStars.map((star) => (
+              <div
+                key={star.id}
+                className="absolute rounded-full star-twinkle"
+                style={{
+                  left: `${star.x}%`,
+                  top: `${star.y}%`,
+                  width: `${star.size}px`,
+                  height: `${star.size}px`,
+                  backgroundColor: '#cbd5e1',
+                  opacity: star.opacity,
+                  animationDelay: `${star.delay}s`
+                }}
+              />
+            ))}
 
-                <Card className="md:col-span-2">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon name="Calendar" size={20} />
-                      Сезоны видимости созвездий
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>❄️</span>
-                          <span>Зима</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>• Орион</p>
-                          <p>• Телец</p>
-                          <p>• Близнецы</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>🌸</span>
-                          <span>Весна</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>• Лев</p>
-                          <p>• Дева</p>
-                          <p>• Волопас</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>☀️</span>
-                          <span>Лето</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>• Лебедь</p>
-                          <p>• Скорпион</p>
-                          <p>• Стрелец</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>🍂</span>
-                          <span>Осень</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>• Кассиопея</p>
-                          <p>• Пегас</p>
-                          <p>• Андромеда</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {getFilteredObjects().map((obj) => (
+              <div
+                key={obj.id}
+                className="absolute rounded-full cursor-pointer hover:scale-150 transition-all duration-200 group"
+                style={{
+                  left: `${obj.x}%`,
+                  top: `${obj.y}%`,
+                  width: `${getObjectSize(obj.brightness)}px`,
+                  height: `${getObjectSize(obj.brightness)}px`,
+                  backgroundColor: getObjectColor(obj),
+                  boxShadow: `0 0 ${obj.brightness * 3}px ${getObjectColor(obj)}`,
+                }}
+                onClick={(e) => handleObjectClick(obj, e)}
+                title={obj.name}
+              >
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-card border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  {obj.name}
+                </div>
               </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+            ))}
+          </div>
+
+          <div className="absolute bottom-4 left-4 flex gap-2 z-10">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPanOffset({ x: 0, y: 0 })}
+            >
+              <Icon name="Crosshair" size={16} className="mr-2" />
+              Центрировать
+            </Button>
+          </div>
+
+          <div className="absolute bottom-4 right-4 z-10">
+            <Card className="bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3">
+                <div className="text-xs text-muted-foreground">
+                  Отображено: <span className="font-semibold text-foreground">{getFilteredObjects().length}</span> объектов
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </main>
+
+      <Dialog open={selectedObject !== null} onOpenChange={(open) => !open && setSelectedObject(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedObject && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start gap-4">
+                  <div
+                    className="w-12 h-12 rounded-full flex-shrink-0 float-animation"
+                    style={{
+                      backgroundColor: getObjectColor(selectedObject),
+                      boxShadow: `0 0 20px ${getObjectColor(selectedObject)}`
+                    }}
+                  />
+                  <div className="flex-1">
+                    <DialogTitle className="text-2xl">{selectedObject.name}</DialogTitle>
+                    <DialogDescription className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline">
+                        {selectedObject.type === 'star' ? '⭐ Звезда' :
+                         selectedObject.type === 'planet' ? '🪐 Планета' :
+                         selectedObject.type === 'nebula' ? '🌸 Туманность' :
+                         selectedObject.type === 'galaxy' ? '🌌 Галактика' : '✨ Скопление'}
+                      </Badge>
+                      {selectedObject.constellation && (
+                        <Badge variant="secondary">{selectedObject.constellation}</Badge>
+                      )}
+                      {selectedObject.magnitude && (
+                        <Badge variant="outline">Звёздная величина: {selectedObject.magnitude}</Badge>
+                      )}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-4">
+                <div>
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Icon name="FileText" size={18} />
+                    Описание
+                  </h3>
+                  <p className="text-muted-foreground">{selectedObject.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Icon name="Ruler" size={16} />
+                        Расстояние
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-lg font-semibold">{selectedObject.distance}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Icon name="Sparkle" size={16} />
+                        Яркость
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-lg font-semibold">{selectedObject.brightness.toFixed(1)}/6.0</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {selectedObject.facts && selectedObject.facts.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Icon name="Lightbulb" size={18} />
+                      Интересные факты
+                    </h3>
+                    <ul className="space-y-2">
+                      {selectedObject.facts.map((fact, index) => (
+                        <li key={index} className="flex gap-3 text-sm text-muted-foreground">
+                          <Icon name="ChevronRight" size={16} className="text-primary flex-shrink-0 mt-0.5" />
+                          <span>{fact}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
