@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 interface CelestialObject {
   id: number;
@@ -21,6 +23,13 @@ interface CelestialObject {
   description: string;
   facts?: string[];
   magnitude?: number;
+}
+
+interface Constellation {
+  name: string;
+  lines: Array<[number, number]>;
+  labelX: number;
+  labelY: number;
 }
 
 const celestialObjects: CelestialObject[] = [
@@ -306,6 +315,31 @@ const celestialObjects: CelestialObject[] = [
   }
 ];
 
+const constellations: Constellation[] = [
+  {
+    name: 'Орион',
+    lines: [
+      [12, 6],
+      [6, 14],
+      [14, 12]
+    ],
+    labelX: 41.67,
+    labelY: 58.33
+  },
+  {
+    name: 'Большой Пёс',
+    lines: [[1, 12]],
+    labelX: 22.5,
+    labelY: 50
+  },
+  {
+    name: 'Лира',
+    lines: [[9, 7]],
+    labelX: 72.5,
+    labelY: 37.5
+  }
+];
+
 const generateBackgroundStars = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
     id: `bg-${i}`,
@@ -328,6 +362,12 @@ export default function Index() {
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [showConstellationLines, setShowConstellationLines] = useState(true);
+  const [showConstellationNames, setShowConstellationNames] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showPlanets, setShowPlanets] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -365,16 +405,29 @@ export default function Index() {
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY * 0.5;
-    setPanOffset(prev => ({
-      x: prev.x - delta * 0.3,
-      y: prev.y - delta * 0.3
-    }));
+    const delta = e.deltaY;
+    const zoomFactor = delta > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.5, Math.min(3, zoom * zoomFactor));
+    setZoom(newZoom);
+  };
+
+  const resetView = () => {
+    setPanOffset({ x: 0, y: 0 });
+    setZoom(1);
   };
 
   const getFilteredObjects = () => {
-    if (categoryFilter === 'all') return objects;
-    return objects.filter(obj => obj.category === categoryFilter);
+    let filtered = objects;
+    
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(obj => obj.category === categoryFilter);
+    }
+    
+    if (!showPlanets) {
+      filtered = filtered.filter(obj => obj.type !== 'planet');
+    }
+    
+    return filtered;
   };
 
   const getObjectColor = (obj: CelestialObject) => {
@@ -388,7 +441,7 @@ export default function Index() {
   };
 
   const getObjectSize = (brightness: number) => {
-    return Math.max(3, brightness * 0.8);
+    return Math.max(3, brightness * 0.8 * zoom);
   };
 
   const handleObjectClick = (obj: CelestialObject, e: React.MouseEvent) => {
@@ -401,51 +454,117 @@ export default function Index() {
     setSearchQuery('');
     setShowSuggestions(false);
     setPanOffset({
-      x: (50 - obj.x) * 10,
-      y: (50 - obj.y) * 10
+      x: (50 - obj.x) * 10 * zoom,
+      y: (50 - obj.y) * 10 * zoom
     });
   };
 
+  const getObjectPosition = (x: number, y: number) => {
+    return {
+      left: `${x}%`,
+      top: `${y}%`,
+    };
+  };
+
+  const gridLines = Array.from({ length: 10 }, (_, i) => i * 10);
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm fixed top-0 w-full z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <header className="border-b border-border bg-card/95 backdrop-blur-sm fixed top-0 w-full z-50">
+        <div className="px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Icon name="Sparkles" size={32} className="text-primary" />
-            <h1 className="text-2xl font-bold hidden sm:block">Звёздное небо</h1>
+            <button onClick={resetView} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <Icon name="Sparkles" size={28} className="text-primary" />
+              <h1 className="text-xl font-bold hidden sm:block">Звёздное небо</h1>
+            </button>
           </div>
 
-          <div className="flex-1 max-w-md relative">
-            <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Поиск объектов..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery && setShowSuggestions(true)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-md">
+              <Switch
+                id="constellation-lines"
+                checked={showConstellationLines}
+                onCheckedChange={setShowConstellationLines}
+              />
+              <Label htmlFor="constellation-lines" className="text-xs cursor-pointer whitespace-nowrap">Линии</Label>
+            </div>
+
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-md">
+              <Switch
+                id="constellation-names"
+                checked={showConstellationNames}
+                onCheckedChange={setShowConstellationNames}
+              />
+              <Label htmlFor="constellation-names" className="text-xs cursor-pointer whitespace-nowrap">Названия</Label>
+            </div>
+
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-md">
+              <Switch
+                id="planets"
+                checked={showPlanets}
+                onCheckedChange={setShowPlanets}
+              />
+              <Label htmlFor="planets" className="text-xs cursor-pointer whitespace-nowrap">Планеты</Label>
+            </div>
+
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-accent/50 rounded-md">
+              <Switch
+                id="grid"
+                checked={showGrid}
+                onCheckedChange={setShowGrid}
+              />
+              <Label htmlFor="grid" className="text-xs cursor-pointer whitespace-nowrap">Сетка</Label>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={resetView} className="hidden sm:flex">
+              <Icon name="RotateCcw" size={16} className="mr-2" />
+              Сброс
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+            >
+              <Icon name="SlidersHorizontal" size={16} />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="pt-[61px] flex-1 flex overflow-hidden">
+        <aside
+          className={`${
+            leftPanelOpen ? 'translate-x-0' : '-translate-x-full'
+          } lg:translate-x-0 transition-transform duration-300 w-72 border-r border-border bg-card/50 backdrop-blur-sm fixed lg:relative h-[calc(100vh-61px)] z-40 flex flex-col`}
+        >
+          <div className="p-4 border-b border-border">
+            <div className="relative">
+              <Icon name="Search" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Поиск объектов..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="pl-10"
+              />
+            </div>
             {showSuggestions && suggestions.length > 0 && (
-              <Card className="absolute top-full mt-2 w-full z-50 max-h-80 overflow-auto">
+              <Card className="absolute mt-2 w-[calc(100%-2rem)] z-50 max-h-60 overflow-auto">
                 <CardContent className="p-2">
                   {suggestions.map((obj) => (
                     <button
                       key={obj.id}
                       onClick={() => handleSuggestionClick(obj)}
-                      className="w-full text-left p-3 rounded-md hover:bg-accent transition-colors flex items-center gap-3"
+                      className="w-full text-left p-2 rounded-md hover:bg-accent transition-colors flex items-center gap-2 text-sm"
                     >
                       <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: getObjectColor(obj) }}
                       />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium">{obj.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {obj.constellation ? `${obj.constellation} • ` : ''}{obj.type === 'star' ? 'Звезда' : obj.type === 'planet' ? 'Планета' : obj.type === 'nebula' ? 'Туманность' : obj.type === 'galaxy' ? 'Галактика' : 'Скопление'}
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="flex-shrink-0">
-                        {obj.distance}
-                      </Badge>
+                      <span className="flex-1 truncate">{obj.name}</span>
                     </button>
                   ))}
                 </CardContent>
@@ -453,203 +572,268 @@ export default function Index() {
             )}
           </div>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Icon name="Menu" size={20} />
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <Icon name="Layers" size={20} />
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-4">
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                  <Icon name="Layers" size={16} />
                   Категории объектов
-                </SheetTitle>
-              </SheetHeader>
-              <ScrollArea className="h-[calc(100vh-120px)] mt-6">
-                <div className="space-y-2">
+                </h3>
+                <div className="space-y-1">
                   <Button
                     variant={categoryFilter === 'all' ? 'default' : 'ghost'}
-                    className="w-full justify-start"
+                    size="sm"
+                    className="w-full justify-start text-sm h-9"
                     onClick={() => setCategoryFilter('all')}
                   >
-                    <Icon name="Globe" size={18} className="mr-2" />
+                    <Icon name="Globe" size={16} className="mr-2" />
                     Все объекты
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge variant="secondary" className="ml-auto text-xs">
                       {objects.length}
                     </Badge>
                   </Button>
 
                   <Button
                     variant={categoryFilter === 'brightest' ? 'default' : 'ghost'}
-                    className="w-full justify-start"
+                    size="sm"
+                    className="w-full justify-start text-sm h-9"
                     onClick={() => setCategoryFilter('brightest')}
                   >
-                    <Icon name="Star" size={18} className="mr-2" />
+                    <Icon name="Star" size={16} className="mr-2" />
                     Ярчайшие звёзды
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge variant="secondary" className="ml-auto text-xs">
                       {objects.filter(o => o.category === 'brightest').length}
                     </Badge>
                   </Button>
 
                   <Button
                     variant={categoryFilter === 'planet' ? 'default' : 'ghost'}
-                    className="w-full justify-start"
+                    size="sm"
+                    className="w-full justify-start text-sm h-9"
                     onClick={() => setCategoryFilter('planet')}
                   >
-                    <Icon name="Circle" size={18} className="mr-2" />
+                    <Icon name="Circle" size={16} className="mr-2" />
                     Планеты
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge variant="secondary" className="ml-auto text-xs">
                       {objects.filter(o => o.category === 'planet').length}
                     </Badge>
                   </Button>
 
                   <Button
                     variant={categoryFilter === 'deep-space' ? 'default' : 'ghost'}
-                    className="w-full justify-start"
+                    size="sm"
+                    className="w-full justify-start text-sm h-9"
                     onClick={() => setCategoryFilter('deep-space')}
                   >
-                    <Icon name="Telescope" size={18} className="mr-2" />
+                    <Icon name="Telescope" size={16} className="mr-2" />
                     Глубокий космос
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge variant="secondary" className="ml-auto text-xs">
                       {objects.filter(o => o.category === 'deep-space').length}
                     </Badge>
                   </Button>
                 </div>
+              </div>
 
-                <div className="mt-8 space-y-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Icon name="Info" size={18} />
-                    Управление
-                  </h3>
-                  <div className="space-y-3 text-sm text-muted-foreground">
-                    <div className="flex gap-2">
-                      <Icon name="Move" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
-                      <p>Перетаскивайте карту мышью</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Icon name="MousePointer2" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
-                      <p>Прокручивайте колесом мыши для навигации</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Icon name="MousePointerClick" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
-                      <p>Нажмите на объект для детальной информации</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Icon name="Search" size={16} className="mt-0.5 flex-shrink-0 text-primary" />
-                      <p>Используйте поиск с автодополнением</p>
-                    </div>
+              <Separator />
+
+              <div className="lg:hidden">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                  <Icon name="Eye" size={16} />
+                  Слои отображения
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mobile-lines" className="text-sm">Линии созвездий</Label>
+                    <Switch
+                      id="mobile-lines"
+                      checked={showConstellationLines}
+                      onCheckedChange={setShowConstellationLines}
+                    />
                   </div>
-                </div>
-
-                <div className="mt-8 space-y-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Icon name="Palette" size={18} />
-                    Легенда
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-white shadow-[0_0_8px_white]" />
-                      <span className="text-sm">Яркие звёзды</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-[#ffd43b] shadow-[0_0_6px_#ffd43b]" />
-                      <span className="text-sm">Планеты</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-[#ff6b9d] shadow-[0_0_6px_#ff6b9d]" />
-                      <span className="text-sm">Туманности</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-[#a5d8ff] shadow-[0_0_6px_#a5d8ff]" />
-                      <span className="text-sm">Галактики</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-[#b197fc] shadow-[0_0_6px_#b197fc]" />
-                      <span className="text-sm">Скопления</span>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mobile-names" className="text-sm">Названия созвездий</Label>
+                    <Switch
+                      id="mobile-names"
+                      checked={showConstellationNames}
+                      onCheckedChange={setShowConstellationNames}
+                    />
                   </div>
-                </div>
-              </ScrollArea>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </header>
-
-      <main className="pt-[73px] h-screen overflow-hidden">
-        <div
-          ref={mapRef}
-          className="relative w-full h-full bg-[#0a0a0f] cursor-grab active:cursor-grabbing select-none"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-        >
-          <div
-            className="absolute inset-0 transition-transform duration-100"
-            style={{
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-              width: '200%',
-              height: '200%',
-              left: '-50%',
-              top: '-50%'
-            }}
-          >
-            {backgroundStars.map((star) => (
-              <div
-                key={star.id}
-                className="absolute rounded-full star-twinkle"
-                style={{
-                  left: `${star.x}%`,
-                  top: `${star.y}%`,
-                  width: `${star.size}px`,
-                  height: `${star.size}px`,
-                  backgroundColor: '#cbd5e1',
-                  opacity: star.opacity,
-                  animationDelay: `${star.delay}s`
-                }}
-              />
-            ))}
-
-            {getFilteredObjects().map((obj) => (
-              <div
-                key={obj.id}
-                className="absolute rounded-full cursor-pointer hover:scale-150 transition-all duration-200 group"
-                style={{
-                  left: `${obj.x}%`,
-                  top: `${obj.y}%`,
-                  width: `${getObjectSize(obj.brightness)}px`,
-                  height: `${getObjectSize(obj.brightness)}px`,
-                  backgroundColor: getObjectColor(obj),
-                  boxShadow: `0 0 ${obj.brightness * 3}px ${getObjectColor(obj)}`,
-                }}
-                onClick={(e) => handleObjectClick(obj, e)}
-                title={obj.name}
-              >
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-card border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  {obj.name}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mobile-planets" className="text-sm">Планеты</Label>
+                    <Switch
+                      id="mobile-planets"
+                      checked={showPlanets}
+                      onCheckedChange={setShowPlanets}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mobile-grid" className="text-sm">Сетка координат</Label>
+                    <Switch
+                      id="mobile-grid"
+                      checked={showGrid}
+                      onCheckedChange={setShowGrid}
+                    />
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
 
-          <div className="absolute bottom-4 left-4 flex gap-2 z-10">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPanOffset({ x: 0, y: 0 })}
+              <Separator className="lg:hidden" />
+
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                  <Icon name="Info" size={16} />
+                  Управление
+                </h3>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex gap-2">
+                    <Icon name="Move" size={14} className="mt-0.5 flex-shrink-0 text-primary" />
+                    <p>Перетаскивайте карту мышью</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Icon name="MousePointer2" size={14} className="mt-0.5 flex-shrink-0 text-primary" />
+                    <p>Колесо мыши для масштабирования</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Icon name="MousePointerClick" size={14} className="mt-0.5 flex-shrink-0 text-primary" />
+                    <p>Клик на объект для информации</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </aside>
+
+        <div className="flex-1 relative overflow-hidden">
+          <div
+            ref={mapRef}
+            className="w-full h-full bg-[#0a0a0f] cursor-grab active:cursor-grabbing select-none relative"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                width: '200%',
+                height: '200%',
+                left: '-50%',
+                top: '-50%',
+                transformOrigin: 'center',
+                transition: isPanning ? 'none' : 'transform 0.1s'
+              }}
             >
-              <Icon name="Crosshair" size={16} className="mr-2" />
-              Центрировать
-            </Button>
+              {showGrid && gridLines.map((pos) => (
+                <div key={`h-${pos}`}>
+                  <div
+                    className="absolute h-px bg-blue-500/20"
+                    style={{
+                      top: `${pos}%`,
+                      left: '0',
+                      right: '0'
+                    }}
+                  />
+                  <div
+                    className="absolute w-px bg-blue-500/20"
+                    style={{
+                      left: `${pos}%`,
+                      top: '0',
+                      bottom: '0'
+                    }}
+                  />
+                </div>
+              ))}
+
+              {backgroundStars.map((star) => (
+                <div
+                  key={star.id}
+                  className="absolute rounded-full star-twinkle"
+                  style={{
+                    left: `${star.x}%`,
+                    top: `${star.y}%`,
+                    width: `${star.size}px`,
+                    height: `${star.size}px`,
+                    backgroundColor: '#cbd5e1',
+                    opacity: star.opacity,
+                    animationDelay: `${star.delay}s`
+                  }}
+                />
+              ))}
+
+              {showConstellationLines && constellations.map((constellation, idx) => {
+                return constellation.lines.map((line, lineIdx) => {
+                  const obj1 = objects.find(o => o.id === line[0]);
+                  const obj2 = objects.find(o => o.id === line[1]);
+                  if (!obj1 || !obj2) return null;
+
+                  const x1 = obj1.x;
+                  const y1 = obj1.y;
+                  const x2 = obj2.x;
+                  const y2 = obj2.y;
+
+                  const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                  const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+
+                  return (
+                    <div
+                      key={`${idx}-${lineIdx}`}
+                      className="absolute h-px bg-blue-400/30"
+                      style={{
+                        left: `${x1}%`,
+                        top: `${y1}%`,
+                        width: `${length}%`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: '0 0'
+                      }}
+                    />
+                  );
+                });
+              })}
+
+              {showConstellationNames && constellations.map((constellation, idx) => (
+                <div
+                  key={`label-${idx}`}
+                  className="absolute text-blue-300/60 text-xs font-semibold pointer-events-none"
+                  style={{
+                    left: `${constellation.labelX}%`,
+                    top: `${constellation.labelY}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  {constellation.name}
+                </div>
+              ))}
+
+              {getFilteredObjects().map((obj) => (
+                <div
+                  key={obj.id}
+                  className="absolute rounded-full cursor-pointer hover:scale-150 transition-all duration-200 group"
+                  style={{
+                    ...getObjectPosition(obj.x, obj.y),
+                    width: `${getObjectSize(obj.brightness)}px`,
+                    height: `${getObjectSize(obj.brightness)}px`,
+                    backgroundColor: getObjectColor(obj),
+                    boxShadow: `0 0 ${obj.brightness * 3 * zoom}px ${getObjectColor(obj)}`,
+                  }}
+                  onClick={(e) => handleObjectClick(obj, e)}
+                  title={obj.name}
+                >
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-card border border-border rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    {obj.name}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="absolute bottom-4 right-4 z-10">
-            <Card className="bg-card/80 backdrop-blur-sm">
+          <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+            <Card className="bg-card/90 backdrop-blur-sm">
               <CardContent className="p-3">
-                <div className="text-xs text-muted-foreground">
-                  Отображено: <span className="font-semibold text-foreground">{getFilteredObjects().length}</span> объектов
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>Масштаб: <span className="font-semibold text-foreground">{zoom.toFixed(1)}x</span></div>
+                  <div>Объектов: <span className="font-semibold text-foreground">{getFilteredObjects().length}</span></div>
                 </div>
               </CardContent>
             </Card>
@@ -664,7 +848,7 @@ export default function Index() {
               <DialogHeader>
                 <div className="flex items-start gap-4">
                   <div
-                    className="w-12 h-12 rounded-full flex-shrink-0 float-animation"
+                    className="w-12 h-12 rounded-full flex-shrink-0"
                     style={{
                       backgroundColor: getObjectColor(selectedObject),
                       boxShadow: `0 0 20px ${getObjectColor(selectedObject)}`
@@ -696,7 +880,7 @@ export default function Index() {
                     <Icon name="FileText" size={18} />
                     Описание
                   </h3>
-                  <p className="text-muted-foreground">{selectedObject.description}</p>
+                  <p className="text-muted-foreground text-sm">{selectedObject.description}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -708,7 +892,7 @@ export default function Index() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-lg font-semibold">{selectedObject.distance}</p>
+                      <p className="text-base font-semibold">{selectedObject.distance}</p>
                     </CardContent>
                   </Card>
 
@@ -720,7 +904,7 @@ export default function Index() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-lg font-semibold">{selectedObject.brightness.toFixed(1)}/6.0</p>
+                      <p className="text-base font-semibold">{selectedObject.brightness.toFixed(1)}/6.0</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -746,6 +930,13 @@ export default function Index() {
           )}
         </DialogContent>
       </Dialog>
+
+      {leftPanelOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setLeftPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }
